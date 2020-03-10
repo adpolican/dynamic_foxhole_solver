@@ -4,9 +4,10 @@ import numpy as np
 from typing import List, Tuple
 from multiprocessing import Pool
 import time
+import sys
 
 
-DIMS = [3, 3, 3]
+DIMS = [2, 2, 2, 2, 2]
 
 foxhole_graph = nx.grid_graph(DIMS)
 nodes = sorted(list(foxhole_graph))
@@ -14,6 +15,11 @@ corner = nodes[0]
 next_to_corner = nodes[1]
 part_0, part_1 = nx.algorithms.bipartite.sets(foxhole_graph)
 part_0, part_1 = sorted(list(part_0)), sorted(list(part_1))
+
+product = 1
+for d in DIMS:
+    product *= d
+EVEN = product % 2 == 0
 
 
 class GraphError(Exception):
@@ -33,7 +39,8 @@ def findReducingSet(
         lowest = 10**6
         result = []
         for top_subset_idxs in combos(top_reachable_idxs, check_count):
-            top_remaining = [top_layer[idx] for idx in top_reachable_idxs
+            top_remaining = [top_layer[idx]
+                             for idx in top_reachable_idxs
                              if idx not in top_subset_idxs]
             ind_graph = nx.subgraph(layer_graph, top_remaining + bot_layer)
             isolates_after = list(nx.isolates(ind_graph))
@@ -49,7 +56,9 @@ def findReducingSet(
                 msg = 'Isolates in the top_layer of induced subgraph'
                 raise GraphError(msg)
 
-            if fraction_reachable_bot <= fraction_reachable_top:
+            c1 = (EVEN) and (fraction_reachable_bot < fraction_reachable_top)
+            c2 = (not EVEN) and (fraction_reachable_bot <= fraction_reachable_top)
+            if c1 or c2:
                 if fraction_reachable_bot < lowest:
                     result = []
                     lowest = fraction_reachable_bot
@@ -118,8 +127,10 @@ if __name__ == '__main__':
 
     all_edges = checkGraph.edges()
 
+    print('Fox hole graph dimensions', DIMS)
     sp = nx.algorithms.shortest_paths.generic.shortest_path
     max_checks = max([checkGraph[u][v]['weight'] for u, v in all_edges])
+    found = False
     for checks in range(max_checks + 1):
         sub_edges = [(u, v) for u, v in all_edges
                      if checkGraph[u][v]['weight'] <= checks]
@@ -129,8 +140,10 @@ if __name__ == '__main__':
             checkCount = 0
             for origin, dest in zip(path, path[1:]):
                 checkCount = max(checkCount, checkGraph[origin][dest]['weight'])
-            print('Fox hole graph dimensions', DIMS)
             print(f'Result: {checkCount} check{"s" if (checkCount-1) else ""} per day')
+            found = True
             break
         except:
             pass
+    if not found:
+        print('Error: no checking path found')
